@@ -1,3 +1,4 @@
+import datetime
 from pydantic import BaseModel
 
 
@@ -18,15 +19,18 @@ class ProductBase(BaseModel):
     name: str
     description: str
     price: float
-    category_id: int
 
 class CreateProduct(ProductBase):
+    category_id: int
     class Config:
         from_attributes = True
 
 class Product(ProductBase):
     id: int
     active: bool
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    category: Category 
 
     class Config:
         from_attributes = True

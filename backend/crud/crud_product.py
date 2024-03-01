@@ -8,20 +8,13 @@ import schemas
 from fastapi import APIRouter
 from database import get_db
 from fastapi.responses import JSONResponse
+from fastapi_pagination import Page, paginate
 
 
 router = APIRouter(
     prefix='/products',
     tags=['Products']
 )
-
-def get_pagination_params(
-    # offset must be greater than or equal to 0
-    offset: int = Query(0, ge=0),
-    # limit must be greater than 0
-    limit: int = Query(10, gt=0)
-):
-    return {"offset": offset, "limit": limit}
 
 def validate_product_input(data: schemas.CreateProduct):
     data = data.model_dump()
@@ -38,16 +31,14 @@ def validate_product_input(data: schemas.CreateProduct):
     return data
     
 
-@router.get('', response_model=List[schemas.Product])
-def get_products(db: Session = Depends(get_db), pagination: dict = Depends(get_pagination_params), category_id: Annotated[list, Query()] = []):
-    offset = pagination["offset"]
-    limit = pagination["limit"]
+@router.get('', response_model=Page[schemas.Product])
+def get_products(db: Session = Depends(get_db), category_id: Annotated[list, Query()] = []):
     products = db.query(models.Product).filter(models.Product.active)
 
     if len(category_id):
         products = products.filter(models.Product.category_id.in_(category_id))
 
-    return products.offset(offset).limit(limit).all()
+    return paginate(products.all())
 
 @router.post('', status_code=status.HTTP_201_CREATED, response_model=schemas.Product, responses={404: {"model": schemas.Message}, 400: {"model": schemas.Message}, 422: {"model": schemas.Message}})
 def create_product(product_create: schemas.CreateProduct, db: Session = Depends(get_db)):
@@ -96,7 +87,7 @@ def update_product(product_id: str, product_data: schemas.ProductBase, db: Sessi
         raise JSONResponse(status_code=404, content="Product does not exist")
 
 
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=schemas.Product, responses={404: {"model": schemas.Message}})
+@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT, responses={404: {"model": schemas.Message}})
 def update_product(product_id: str, db: Session = Depends(get_db)):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if product:
@@ -104,6 +95,6 @@ def update_product(product_id: str, db: Session = Depends(get_db)):
         
         db.commit()
 
-        return product
+        return None
     else:
         raise JSONResponse(status_code=404, content="Product does not exist")
